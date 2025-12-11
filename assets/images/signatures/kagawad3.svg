@@ -1,0 +1,7 @@
+<svg width="150" height="50" xmlns="http://www.w3.org/2000/svg">
+  <style>
+    .signature { fill: none; stroke: #000; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  </style>
+  <path class="signature" d="M 18 28 L 30 32 Q 40 35, 50 25 L 60 22 Q 70 18, 80 28 Q 90 35, 100 25 L 110 28 Q 120 32, 130 26"/>
+  <path class="signature" d="M 35 30 L 38 35 M 82 28 L 85 24 M 115 28 L 118 32"/>
+</svg>

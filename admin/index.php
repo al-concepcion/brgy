@@ -1,0 +1,665 @@
+<?php
+require_once '../includes/config.php';
+require_login();
+
+$page_title = 'Dashboard';
+$success_message = '';
+$error_message = '';
+$recent_apps = [];
+$registered_users = [];
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_user'])) {
+    $userId = isset($_POST['user_id']) ? (int) $_POST['user_id'] : 0;
+
+    if ($userId > 0) {
+        try {
+            $conn->beginTransaction();
+
+            $stmt = $conn->prepare("DELETE FROM id_applications WHERE user_id = ?");
+            $stmt->execute([$userId]);
+
+            $stmt = $conn->prepare("DELETE FROM certification_requests WHERE user_id = ?");
+            $stmt->execute([$userId]);
+
+            $stmt = $conn->prepare("DELETE FROM users WHERE id = ?");
+            $stmt->execute([$userId]);
+
+            $conn->commit();
+            $success_message = 'Resident account removed successfully.';
+        } catch (PDOException $e) {
+            $conn->rollBack();
+            $error_message = 'Failed to delete resident account.';
+        }
+    } else {
+        $error_message = 'Invalid resident selected for deletion.';
+    }
+}
+
+// Get statistics and resident list
+$stats = [];
+try {
+    // Total registered residents/users
+    $stmt = $conn->query("SELECT COUNT(*) as total FROM users");
+    $stats['residents'] = $stmt->fetch(PDO::FETCH_ASSOC)['total'];
+    
+    // Total pending applications
+    $stmt = $conn->query("SELECT COUNT(*) as total FROM (
+        SELECT id FROM id_applications WHERE status = 'Pending'
+        UNION ALL
+        SELECT id FROM certification_requests WHERE status = 'Pending'
+    ) as pending");
+    $stats['pending'] = $stmt->fetch(PDO::FETCH_ASSOC)['total'];
+    
+    // Total ID applications
+    $stmt = $conn->query("SELECT COUNT(*) as total FROM id_applications");
+    $stats['id_apps'] = $stmt->fetch(PDO::FETCH_ASSOC)['total'];
+    
+    // Total certifications
+    $stmt = $conn->query("SELECT COUNT(*) as total FROM certification_requests");
+    $stats['cert_apps'] = $stmt->fetch(PDO::FETCH_ASSOC)['total'];
+    
+    // Total messages
+    $stmt = $conn->query("SELECT COUNT(*) as total FROM contact_messages WHERE status = 'New'");
+    $stats['messages'] = $stmt->fetch(PDO::FETCH_ASSOC)['total'];
+    
+    // Status breakdown for ID applications
+    $stmt = $conn->query("SELECT status, COUNT(*) as count FROM id_applications GROUP BY status");
+    $stats['id_status'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    if (empty($stats['id_status'])) {
+        $stats['id_status'] = [['status' => 'No Data', 'count' => 1]];
+    }
+    
+    // Status breakdown for certifications
+    $stmt = $conn->query("SELECT status, COUNT(*) as count FROM certification_requests GROUP BY status");
+    $stats['cert_status'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    if (empty($stats['cert_status'])) {
+        $stats['cert_status'] = [['status' => 'No Data', 'count' => 1]];
+    }
+    
+    // Applications by month (last 6 months)
+    $stmt = $conn->query("
+        SELECT DATE_FORMAT(created_at, '%Y-%m') as month, COUNT(*) as count, 'ID' as type
+        FROM id_applications 
+        WHERE created_at >= DATE_SUB(NOW(), INTERVAL 6 MONTH)
+        GROUP BY DATE_FORMAT(created_at, '%Y-%m')
+        UNION ALL
+        SELECT DATE_FORMAT(created_at, '%Y-%m') as month, COUNT(*) as count, 'CERT' as type
+        FROM certification_requests 
+        WHERE created_at >= DATE_SUB(NOW(), INTERVAL 6 MONTH)
+        GROUP BY DATE_FORMAT(created_at, '%Y-%m')
+        ORDER BY month ASC
+    ");
+    $stats['monthly_apps'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    // Certification types breakdown
+    $stmt = $conn->query("SELECT certificate_type, COUNT(*) as count FROM certification_requests GROUP BY certificate_type");
+    $stats['cert_types'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    if (empty($stats['cert_types'])) {
+        $stats['cert_types'] = [['certificate_type' => 'none', 'count' => 0]];
+    }
+    
+    // Recent applications
+    $recent_apps = [];
+    $stmt = $conn->query("
+        (SELECT reference_number, CONCAT(first_name, ' ', last_name) as name, status, created_at, 'ID' as type 
+         FROM id_applications ORDER BY created_at DESC LIMIT 5)
+        UNION ALL
+        (SELECT reference_number, CONCAT(first_name, ' ', last_name) as name, status, created_at, 'CERT' as type 
+         FROM certification_requests ORDER BY created_at DESC LIMIT 5)
+        ORDER BY created_at DESC LIMIT 10
+    ");
+    $recent_apps = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    // Registered users list sorted alphabetically by name
+    $stmt = $conn->query("SELECT id, CONCAT(first_name, ' ', last_name) AS full_name, email FROM users ORDER BY last_name ASC, first_name ASC");
+    $registered_users = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    
+} catch(PDOException $e) {
+    $stats = [
+        'residents' => 0, 
+        'pending' => 0, 
+        'id_apps' => 0, 
+        'cert_apps' => 0, 
+        'messages' => 0,
+        'id_status' => [['status' => 'No Data', 'count' => 1]],
+        'cert_status' => [['status' => 'No Data', 'count' => 1]],
+        'monthly_apps' => [],
+        'cert_types' => [['certificate_type' => 'none', 'count' => 0]]
+    ];
+    $recent_apps = [];
+    $registered_users = [];
+}
+?>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><?php echo $page_title; ?> - Admin Panel</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .chart-container {
+            position: relative;
+            height: 300px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="index.php">
+                <i class="fas fa-user-shield me-2"></i> Admin Panel
+            </a>
+            <div class="navbar-nav ms-auto">
+                <span class="navbar-text me-3">
+                    <i class="fas fa-user me-1"></i> <?php echo $_SESSION['admin_name']; ?>
+                </span>
+                <a href="../index.php" class="btn btn-sm btn-outline-light me-2" target="_blank">
+                    <i class="fas fa-external-link-alt"></i> View Site
+                </a>
+                <a href="logout.php" class="btn btn-sm btn-outline-danger">
+                    <i class="fas fa-sign-out-alt"></i> Logout
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container-fluid">
+        <div class="row">
+            <!-- Sidebar -->
+            <div class="col-md-2 bg-light vh-100 p-3">
+                <ul class="nav flex-column">
+                    <li class="nav-item">
+                        <a class="nav-link active" href="index.php">
+                            <i class="fas fa-tachometer-alt me-2"></i> Dashboard
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="id-applications.php">
+                            <i class="fas fa-id-card me-2"></i> ID Applications
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="certifications.php">
+                            <i class="fas fa-file-alt me-2"></i> Certifications
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="messages.php">
+                            <i class="fas fa-envelope me-2"></i> Messages
+                            <?php if ($stats['messages'] > 0): ?>
+                                <span class="badge bg-danger"><?php echo $stats['messages']; ?></span>
+                            <?php endif; ?>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+
+            <!-- Main Content -->
+            <div class="col-md-10 p-4">
+                <h2 class="mb-4">Dashboard</h2>
+
+                <?php if (!empty($success_message)): ?>
+                <div class="alert alert-success alert-dismissible fade show" role="alert">
+                    <?php echo $success_message; ?>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+                <?php endif; ?>
+
+                <?php if (!empty($error_message)): ?>
+                <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                    <?php echo $error_message; ?>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+                <?php endif; ?>
+
+                <!-- Statistics Cards -->
+                <div class="row mb-4">
+                    <div class="col-md-3">
+                        <div class="card text-white bg-dark">
+                            <div class="card-body">
+                                <h5 class="card-title"><i class="fas fa-users me-2"></i>Total Residents</h5>
+                                <h2><?php echo $stats['residents']; ?></h2>
+                                <small>Registered Users</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card text-white bg-warning">
+                            <div class="card-body">
+                                <h5 class="card-title"><i class="fas fa-clock me-2"></i>Pending</h5>
+                                <h2><?php echo $stats['pending']; ?></h2>
+                                <small>Applications</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card text-white bg-primary">
+                            <div class="card-body">
+                                <h5 class="card-title"><i class="fas fa-id-card me-2"></i>ID Applications</h5>
+                                <h2><?php echo $stats['id_apps']; ?></h2>
+                                <small>Total Requests</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card text-white bg-success">
+                            <div class="card-body">
+                                <h5 class="card-title"><i class="fas fa-certificate me-2"></i>Certifications</h5>
+                                <h2><?php echo $stats['cert_apps']; ?></h2>
+                                <small>Total Requests</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Charts Row -->
+                <div class="row mb-4">
+                    <!-- Applications Over Time Chart -->
+                    <div class="col-md-8">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5 class="mb-0"><i class="fas fa-chart-line me-2"></i>Applications Over Time (Last 6 Months)</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="chart-container">
+                                    <canvas id="applicationsChart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- ID Application Status Chart -->
+                    <div class="col-md-4">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5 class="mb-0"><i class="fas fa-chart-pie me-2"></i>ID Application Status</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="chart-container">
+                                    <canvas id="idStatusChart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Second Charts Row -->
+                <div class="row mb-4">
+                    <!-- Certification Status Chart -->
+                    <div class="col-md-4">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5 class="mb-0"><i class="fas fa-chart-pie me-2"></i>Certification Status</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="chart-container">
+                                    <canvas id="certStatusChart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Certification Types Chart -->
+                    <div class="col-md-8">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5 class="mb-0"><i class="fas fa-chart-bar me-2"></i>Certification Types Distribution</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="chart-container">
+                                    <canvas id="certTypesChart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Recent Applications -->
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">Recent Applications</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Reference</th>
+                                        <th>Name</th>
+                                        <th>Type</th>
+                                        <th>Status</th>
+                                        <th>Date</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <?php foreach ($recent_apps as $app): ?>
+                                    <tr>
+                                        <td><?php echo htmlspecialchars($app['reference_number']); ?></td>
+                                        <td><?php echo htmlspecialchars($app['name']); ?></td>
+                                        <td>
+                                            <span class="badge <?php echo $app['type'] == 'ID' ? 'bg-primary' : 'bg-success'; ?>">
+                                                <?php echo $app['type'] == 'ID' ? 'Barangay ID' : 'Certification'; ?>
+                                            </span>
+                                        </td>
+                                        <td><?php echo htmlspecialchars(isset($app['status']) ? $app['status'] : 'N/A'); ?></td>
+                                        <td><?php echo isset($app['created_at']) ? htmlspecialchars(format_date($app['created_at'])) : 'N/A'; ?></td>
+                                    </tr>
+                                    <?php endforeach; ?>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card mt-4">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">Registered Residents</h5>
+                        <span class="badge bg-secondary">Total: <?php echo count($registered_users); ?></span>
+                    </div>
+                    <div class="card-body">
+                        <?php if (empty($registered_users)): ?>
+                            <p class="text-muted mb-0">No registered residents yet.</p>
+                        <?php else: ?>
+                        <div class="table-responsive" style="max-height: 320px;">
+                            <table class="table table-sm align-middle">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th scope="col">Resident Name</th>
+                                        <th scope="col">Email Address</th>
+                                        <th scope="col" class="text-end">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <?php foreach ($registered_users as $user): ?>
+                                    <tr>
+                                        <td><?php echo htmlspecialchars($user['full_name']); ?></td>
+                                        <td><?php echo htmlspecialchars($user['email']); ?></td>
+                                        <td class="text-end">
+                                            <form method="POST" class="d-inline delete-user-form">
+                                                <input type="hidden" name="user_id" value="<?php echo (int) $user['id']; ?>">
+                                                <input type="hidden" name="delete_user" value="1">
+                                                <button type="submit" class="btn btn-sm btn-outline-danger">
+                                                    <i class="fas fa-trash-alt"></i> Remove
+                                                </button>
+                                            </form>
+                                        </td>
+                                    </tr>
+                                    <?php endforeach; ?>
+                                </tbody>
+                            </table>
+                        </div>
+                        <?php endif; ?>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script>
+        <?php
+        // Prepare chart data in PHP
+        $months = [];
+        $idCounts = [];
+        $certCounts = [];
+        
+        // Generate last 6 months
+        for ($i = 5; $i >= 0; $i--) {
+            $month = date('Y-m', strtotime("-$i months"));
+            $months[] = date('M Y', strtotime("-$i months"));
+            $idCounts[$month] = 0;
+            $certCounts[$month] = 0;
+        }
+        
+        // Fill in actual data
+        if (isset($stats['monthly_apps'])) {
+            foreach ($stats['monthly_apps'] as $app) {
+                if (isset($app['month'], $app['type'], $app['count'])) {
+                    if ($app['type'] == 'ID') {
+                        $idCounts[$app['month']] = $app['count'];
+                    } else {
+                        $certCounts[$app['month']] = $app['count'];
+                    }
+                }
+            }
+        }
+        
+        // ID Status data
+        $idStatusLabels = [];
+        $idStatusData = [];
+        if (isset($stats['id_status'])) {
+            foreach ($stats['id_status'] as $status) {
+                if (isset($status['status'], $status['count'])) {
+                    $idStatusLabels[] = $status['status'];
+                    $idStatusData[] = $status['count'];
+                }
+            }
+        }
+        
+        // Cert Status data
+        $certStatusLabels = [];
+        $certStatusData = [];
+        if (isset($stats['cert_status'])) {
+            foreach ($stats['cert_status'] as $status) {
+                if (isset($status['status'], $status['count'])) {
+                    $certStatusLabels[] = $status['status'];
+                    $certStatusData[] = $status['count'];
+                }
+            }
+        }
+        
+        // Cert Types data
+        $certTypeLabels = [];
+        $certTypeData = [];
+        $certTypeNames = [
+            'residency' => 'Residency',
+            'indigency' => 'Indigency',
+            'clearance' => 'Clearance',
+            'business' => 'Business',
+            'good_moral' => 'Good Moral'
+        ];
+        if (isset($stats['cert_types'])) {
+            foreach ($stats['cert_types'] as $type) {
+                if (isset($type['certificate_type'], $type['count'])) {
+                    $certTypeLabels[] = $certTypeNames[$type['certificate_type']] ?? ucfirst($type['certificate_type']);
+                    $certTypeData[] = $type['count'];
+                }
+            }
+        }
+        ?>
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            // Applications Over Time Chart
+            const applicationsCanvas = document.getElementById('applicationsChart');
+            if (applicationsCanvas) {
+                new Chart(applicationsCanvas, {
+                    type: 'line',
+                    data: {
+                        labels: <?php echo json_encode($months); ?>,
+                        datasets: [{
+                            label: 'ID Applications',
+                            data: <?php echo json_encode(array_values($idCounts)); ?>,
+                            borderColor: 'rgb(13, 110, 253)',
+                            backgroundColor: 'rgba(13, 110, 253, 0.1)',
+                            tension: 0.4,
+                            fill: true
+                        }, {
+                            label: 'Certifications',
+                            data: <?php echo json_encode(array_values($certCounts)); ?>,
+                            borderColor: 'rgb(25, 135, 84)',
+                            backgroundColor: 'rgba(25, 135, 84, 0.1)',
+                            tension: 0.4,
+                            fill: true
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'top',
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                ticks: {
+                                    stepSize: 1
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+
+            // ID Status Chart
+            const idStatusCanvas = document.getElementById('idStatusChart');
+            if (idStatusCanvas) {
+                new Chart(idStatusCanvas, {
+                    type: 'doughnut',
+                    data: {
+                        labels: <?php echo json_encode($idStatusLabels); ?>,
+                        datasets: [{
+                            data: <?php echo json_encode($idStatusData); ?>,
+                            backgroundColor: [
+                                'rgba(255, 193, 7, 0.8)',
+                                'rgba(13, 110, 253, 0.8)',
+                                'rgba(108, 117, 125, 0.8)',
+                                'rgba(25, 135, 84, 0.8)',
+                                'rgba(111, 66, 193, 0.8)',
+                                'rgba(220, 53, 69, 0.8)'
+                            ]
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'bottom',
+                            }
+                        }
+                    }
+                });
+            }
+
+            // Certification Status Chart
+            const certStatusCanvas = document.getElementById('certStatusChart');
+            if (certStatusCanvas) {
+                new Chart(certStatusCanvas, {
+                    type: 'doughnut',
+                    data: {
+                        labels: <?php echo json_encode($certStatusLabels); ?>,
+                        datasets: [{
+                            data: <?php echo json_encode($certStatusData); ?>,
+                            backgroundColor: [
+                                'rgba(255, 193, 7, 0.8)',
+                                'rgba(13, 110, 253, 0.8)',
+                                'rgba(108, 117, 125, 0.8)',
+                                'rgba(25, 135, 84, 0.8)',
+                                'rgba(111, 66, 193, 0.8)',
+                                'rgba(220, 53, 69, 0.8)',
+                                'rgba(13, 202, 240, 0.8)'
+                            ]
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'bottom',
+                            }
+                        }
+                    }
+                });
+            }
+
+            // Certification Types Chart
+            const certTypesCanvas = document.getElementById('certTypesChart');
+            if (certTypesCanvas) {
+                new Chart(certTypesCanvas, {
+                    type: 'bar',
+                    data: {
+                        labels: <?php echo json_encode($certTypeLabels); ?>,
+                        datasets: [{
+                            label: 'Number of Requests',
+                            data: <?php echo json_encode($certTypeData); ?>,
+                            backgroundColor: 'rgba(25, 135, 84, 0.8)',
+                            borderColor: 'rgba(25, 135, 84, 1)',
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                display: false
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                ticks: {
+                                    stepSize: 1
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+            
+            // Delete user form handler
+            document.querySelectorAll('.delete-user-form').forEach(function(form) {
+            form.addEventListener('submit', function(event) {
+                event.preventDefault();
+
+                const row = form.closest('tr');
+                const nameCell = row ? row.querySelector('td') : null;
+                const residentName = nameCell ? nameCell.textContent.trim() : 'this resident';
+
+                Swal.fire({
+                    title: 'Delete Resident?',
+                    text: 'Are you sure you want to delete ' + residentName + '? This action cannot be undone.',
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#d33',
+                    cancelButtonColor: '#6c757d',
+                    confirmButtonText: 'Yes, delete',
+                    cancelButtonText: 'Cancel'
+                }).then(function(result) {
+                    if (result.isConfirmed) {
+                        form.submit();
+                    }
+                });
+            });
+        });
+
+        <?php if (!empty($success_message)): ?>
+        Swal.fire({
+            icon: 'success',
+            title: 'Success',
+            text: <?php echo json_encode($success_message); ?>,
+            confirmButtonColor: '#198754'
+        });
+        <?php endif; ?>
+
+        <?php if (!empty($error_message)): ?>
+        Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: <?php echo json_encode($error_message); ?>,
+            confirmButtonColor: '#d33'
+        });
+        <?php endif; ?>
+        });
+    </script>
+</body>
+</html>
+</html>

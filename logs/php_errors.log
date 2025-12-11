@@ -1,0 +1,18 @@
+[04-Dec-2025 11:33:25 Europe/Berlin] Email sent successfully to: alapagjohnyasser@gmail.com | Subject: Application Received - CERT-17648443992155
+[10-Dec-2025 02:39:25 Europe/Berlin] Email sending failed to: jyalapag@kld.edu.ph | Error: SMTP Error: Could not connect to SMTP host. Failed to connect to serverSMTP server error: Failed to connect to server Additional SMTP info: php_network_getaddresses: getaddrinfo for smtp.gmail.com failed: No such host is known.  | Exception: SMTP Error: Could not connect to SMTP host. Failed to connect to server
+[10-Dec-2025 02:41:22 Europe/Berlin] Email sent successfully to: jyalapag@kld.edu.ph | Subject: Application Being Processed - BID-17653307651832
+[10-Dec-2025 02:41:22 Europe/Berlin] Email sent to jyalapag@kld.edu.ph for Processing: SUCCESS
+[10-Dec-2025 02:41:36 Europe/Berlin] Email sent successfully to: jyalapag@kld.edu.ph | Subject: ✅ Your Barangay ID is Ready! - BID-17653307651832
+[10-Dec-2025 02:41:36 Europe/Berlin] Email sent to jyalapag@kld.edu.ph for Ready for Pickup: SUCCESS
+[10-Dec-2025 02:45:50 Europe/Berlin] Email sent successfully to: jyalapag@kld.edu.ph | Subject: Application Received - BID-17653311451528
+2025-12-10 02:45:50 - Error [2]: Undefined array key "first_name" in D:\xampp\htdocs\webs\apply-id.php on line 104
+2025-12-10 02:45:50 - Error [2]: Undefined array key "middle_name" in D:\xampp\htdocs\webs\apply-id.php on line 105
+2025-12-10 02:45:50 - Error [2]: Undefined array key "last_name" in D:\xampp\htdocs\webs\apply-id.php on line 106
+2025-12-10 02:45:50 - Error [2]: Undefined array key "suffix" in D:\xampp\htdocs\webs\apply-id.php on line 107
+2025-12-10 02:45:50 - Error [2]: Undefined array key "birth_date" in D:\xampp\htdocs\webs\apply-id.php on line 108
+2025-12-10 02:45:50 - Error [2]: Undefined array key "gender" in D:\xampp\htdocs\webs\apply-id.php on line 109
+2025-12-10 02:45:50 - Error [2]: Undefined array key "civil_status" in D:\xampp\htdocs\webs\apply-id.php on line 110
+2025-12-10 02:45:50 - Error [2]: Undefined array key "contact_number" in D:\xampp\htdocs\webs\apply-id.php on line 111
+2025-12-10 02:45:50 - Error [2]: Undefined array key "email" in D:\xampp\htdocs\webs\apply-id.php on line 112
+2025-12-10 02:45:50 - Error [2]: Undefined array key "complete_address" in D:\xampp\htdocs\webs\apply-id.php on line 113
+[10-Dec-2025 02:46:45 Europe/Berlin] Email sending failed to: jyalapag@kld.edu.ph | Error: SMTP Error: Could not connect to SMTP host. Failed to connect to serverSMTP server error: Failed to connect to server Additional SMTP info: php_network_getaddresses: getaddrinfo for smtp.gmail.com failed: No such host is known.  | Exception: SMTP Error: Could not connect to SMTP host. Failed to connect to server
