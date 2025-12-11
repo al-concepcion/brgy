@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Apply for Barangay ID - Barangay San Miguel</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="assets/css/style.css">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-light bg-white fixed-top">
+        <div class="container">
+            <a class="navbar-brand d-flex align-items-center" href="index.php">
+                <img src="assets/images/logo.png" alt="Barangay Logo" height="40">
+                <span class="ms-2">Barangay San Miguel<br><small>E-Services Portal</small></span>
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item"><a class="nav-link" href="index.html">Home</a></li>
+                    <li class="nav-item"><a class="nav-link active" href="apply-id.html">Apply for ID</a></li>
+                    <li class="nav-item"><a class="nav-link" href="request-certification.html">Request Certification</a></li>
+                    <li class="nav-item"><a class="nav-link" href="track-application.html">Track Application</a></li>
+                    <li class="nav-item"><a class="nav-link" href="about-contact.html">About & Contact</a></li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Application Form Section -->
+    <section class="application-section py-5">
+        <div class="container">
+            <div class="row justify-content-center">
+                <div class="col-lg-8">
+                    <div class="application-header text-center mb-4">
+                        <div class="application-icon mb-3">
+                            <i class="fas fa-id-card fa-3x text-primary"></i>
+                        </div>
+                        <h1>Apply for Barangay ID</h1>
+                        <p class="text-muted">Complete the application form below to get your Barangay identification card</p>
+                    </div>
+
+                    <!-- Progress Bar -->
+                    <div class="progress-wrapper mb-5">
+                        <p class="small text-muted mb-2">Step 1 of 3 - 33% Complete</p>
+                        <div class="progress">
+                            <div class="progress-bar" role="progressbar" style="width: 33%"></div>
+                        </div>
+                        <div class="progress-steps d-flex justify-content-between mt-2">
+                            <span class="progress-step active">Personal Info</span>
+                            <span class="progress-step">Contact Details</span>
+                            <span class="progress-step">Upload Documents</span>
+                        </div>
+                    </div>
+
+                    <!-- Application Form -->
+                    <div class="application-form">
+                        <form id="idApplicationForm" method="POST" action="<?php echo htmlspecialchars($_SERVER["PHP_SELF"]); ?>">
+                            <h3 class="mb-4">Personal Information</h3>
+                            <p class="text-muted mb-4">Please provide your personal information as it appears on official documents</p>
+
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label for="firstName" class="form-label">First Name *</label>
+                                    <input type="text" class="form-control" id="firstName" name="firstName" required>
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="middleName" class="form-label">Middle Name</label>
+                                    <input type="text" class="form-control" id="middleName" name="middleName">
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="lastName" class="form-label">Last Name *</label>
+                                    <input type="text" class="form-control" id="lastName" name="lastName" required>
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="suffix" class="form-label">Suffix</label>
+                                    <select class="form-select" id="suffix" name="suffix">
+                                        <option value="">Select suffix</option>
+                                        <option value="Jr">Jr.</option>
+                                        <option value="Sr">Sr.</option>
+                                        <option value="III">III</option>
+                                        <option value="IV">IV</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="birthDate" class="form-label">Date of Birth *</label>
+                                    <input type="date" class="form-control" id="birthDate" name="birthDate" required>
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="gender" class="form-label">Gender *</label>
+                                    <select class="form-select" id="gender" name="gender" required>
+                                        <option value="">Select gender</option>
+                                        <option value="Male">Male</option>
+                                        <option value="Female">Female</option>
+                                        <option value="Other">Other</option>
+                                    </select>
+                                </div>
+                                <div class="col-12">
+                                    <label for="civilStatus" class="form-label">Civil Status</label>
+                                    <select class="form-select" id="civilStatus" name="civilStatus">
+                                        <option value="">Select civil status</option>
+                                        <option value="Single">Single</option>
+                                        <option value="Married">Married</option>
+                                        <option value="Widowed">Widowed</option>
+                                        <option value="Divorced">Divorced</option>
+                                        <option value="Separated">Separated</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <!-- Requirements Info Box -->
+                            <div class="requirements-box mt-4 p-4 bg-light rounded">
+                                <h4 class="mb-3">Requirements:</h4>
+                                <ul class="list-unstyled">
+                                    <li class="mb-2"><i class="fas fa-check-circle text-primary me-2"></i> Proof of residency (at least 6 months)</li>
+                                    <li class="mb-2"><i class="fas fa-check-circle text-primary me-2"></i> Valid government-issued ID</li>
+                                    <li class="mb-2"><i class="fas fa-check-circle text-primary me-2"></i> Recent 2x2 ID photo (white background)</li>
+                                    <li><i class="fas fa-clock text-primary me-2"></i> Processing time: 3-5 business days</li>
+                                </ul>
+                            </div>
+
+                            <!-- Form Navigation -->
+                            <div class="form-navigation mt-4 d-flex justify-content-between">
+                                <button type="button" class="btn btn-outline-secondary" onclick="window.location.href='index.html'">
+                                    <i class="fas fa-arrow-left me-2"></i> Back
+                                </button>
+                                <button type="submit" class="btn btn-primary">
+                                    Next <i class="fas fa-arrow-right ms-2"></i>
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer py-5 bg-dark text-white">
+        <div class="container">
+            <div class="row">
+                <div class="col-md-4">
+                    <h5>Contact Information</h5>
+                    <p><i class="fas fa-map-marker-alt"></i> 123 Barangay Hall Road<br>San Miguel, Metro Manila<br>Philippines 1005</p>
+                    <p><i class="fas fa-phone"></i> (02) 8123-4567</p>
+                    <p><i class="fas fa-envelope"></i> info@barangaysanmiguel.gov.ph</p>
+                </div>
+                <div class="col-md-4">
+                    <h5>Office Hours</h5>
+                    <p>Monday - Friday: 8:00 AM - 5:00 PM<br>
+                    Saturday: 8:00 AM - 12:00 PM<br>
+                    Sunday & Holidays: Closed</p>
+                </div>
+                <div class="col-md-4">
+                    <h5>Quick Links</h5>
+                    <ul class="list-unstyled">
+                        <li><a href="#" class="text-white">Republic of the Philippines</a></li>
+                        <li><a href="#" class="text-white">Department of Interior and Local Government</a></li>
+                        <li><a href="#" class="text-white">Data Privacy Notice</a></li>
+                        <li><a href="#" class="text-white">Terms of Service</a></li>
+                    </ul>
+                </div>
+            </div>
+            <hr class="mt-4">
+            <div class="text-center mt-3">
+                <p>&copy; 2025 Barangay San Miguel. All rights reserved.</p>
+                <small>Maka-Diyos, Maka-tao, Makakalikasan, at Makabansa</small>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Bootstrap JS and dependencies -->
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.6/dist/umd/popper.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.min.js"></script>
+    <!-- Custom JS -->
+    <script src="assets/js/main.js"></script>
+</body>
+</html>
